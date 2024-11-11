@@ -1,0 +1,103 @@
+import random
+import time
+from collections import deque
+
+def gerar_solucao(n_rainhas):  # , coluna_fixa=None, linha_fixa=None):
+    solucao = list(range(1, n_rainhas + 1))
+    random.shuffle(solucao)
+    
+    # # Se uma posição fixa foi especificada, coloca a rainha lá
+    # if coluna_fixa is not None and linha_fixa is not None:
+    #     solucao[linha_fixa] = coluna_fixa  # Coloca a rainha na coluna fixa
+    #     # Remove a coluna fixa das demais posições para não repetir
+    #     outras_posicoes = [i for i in range(n_rainhas) if i != coluna_fixa]
+    #     for i in range(n_rainhas):
+    #         if i != linha_fixa:
+    #             solucao[i] = outras_posicoes.pop(0)
+    return solucao
+
+def funcobj(bestsol):
+    n = len(bestsol)
+    
+    diagonal_pos = set()
+    diagonal_neg = set()
+    conflitos = 0
+    
+    for i in range(n):
+        diag_pos = i - bestsol[i]
+        diag_neg = i + bestsol[i]
+        
+        #verifica se existe mais de uma rainha na mesma diagonal
+        if diag_pos in diagonal_pos:
+            conflitos += 1
+        if diag_neg in diagonal_neg:
+            conflitos += 1
+            
+        #adiciona as diagonais ao conjunto
+        diagonal_pos.add(diag_pos)
+        diagonal_neg.add(diag_neg)
+    
+    return conflitos
+
+def gerar_vizinhos(solucao):
+    vizinhos = []
+    n = len(solucao)
+    
+    for i in range(n):
+        for j in range(i + 1, n):
+            #faz uma copia da solucao atual
+            # if i == linha_fixa or j == linha_fixa:
+            #     continue
+            vizinho = solucao[:]
+            #troca duas posicoes
+            vizinho[i], vizinho[j] = vizinho[j], vizinho[i]
+            vizinhos.append(vizinho)
+    return vizinhos
+
+def busca_tabu(n_rainhas, max_iter, tamanho_tabu):  #, coluna_fixa=None, linha_fixa=None):
+    solucao_atual = gerar_solucao(n_rainhas) # , coluna_fixa, linha_fixa)
+    melhor_solucao = solucao_atual[:]
+    melhor_fitness = funcobj(solucao_atual)
+    
+    lista_tabu = deque(maxlen=tamanho_tabu)
+    lista_tabu.append(solucao_atual)
+    
+    iteracao = 0
+    while iteracao < max_iter and melhor_fitness > 0:
+        vizinhos = gerar_vizinhos(solucao_atual) #linha_fixa
+        
+        vizinho_aceito = None
+        melhor_vizinho_fitness = float('inf')
+        
+        for vizinho in vizinhos:
+            if vizinho not in lista_tabu:
+                fitness_vizinho = funcobj(vizinho)
+                if fitness_vizinho < melhor_vizinho_fitness:
+                    melhor_vizinho_fitness = fitness_vizinho
+                    vizinho_aceito = vizinho
+        
+        if vizinho_aceito:
+            solucao_atual = vizinho_aceito
+            lista_tabu.append(solucao_atual)
+        
+            if melhor_vizinho_fitness < melhor_fitness:
+                melhor_solucao = solucao_atual[:]
+                melhor_fitness = melhor_vizinho_fitness
+        
+        iteracao += 1
+    
+    return melhor_solucao, melhor_fitness
+
+
+# # Exemplo de uso
+# linha_fixa = 0  # Linha em que a rainha está fixada
+# coluna_fixa = 3  # Coluna onde queremos fixar a rainha
+
+#executando a busca tabu
+inicio = time.time()
+melhor_solucao, melhor_fitness = busca_tabu(n_rainhas=100, max_iter=5000, tamanho_tabu=50)
+fim = time.time()
+tempo_execucao = fim - inicio
+print("Melhor solução encontrada:", melhor_solucao)
+print("Número de conflitos:", melhor_fitness)
+print(f"Tempo de execução: {tempo_execucao:.2f} segundos")
