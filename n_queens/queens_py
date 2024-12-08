@@ -1,24 +1,16 @@
 import random
 import time
+import matplotlib.pyplot as plt
+import numpy as np
 from collections import deque
 
 def gerar_solucao(n_rainhas):  # , coluna_fixa=None, linha_fixa=None):
     solucao = list(range(1, n_rainhas + 1))
     random.shuffle(solucao)
-    
-    # # Se uma posição fixa foi especificada, coloca a rainha lá
-    # if coluna_fixa is not None and linha_fixa is not None:
-    #     solucao[linha_fixa] = coluna_fixa  # Coloca a rainha na coluna fixa
-    #     # Remove a coluna fixa das demais posições para não repetir
-    #     outras_posicoes = [i for i in range(n_rainhas) if i != coluna_fixa]
-    #     for i in range(n_rainhas):
-    #         if i != linha_fixa:
-    #             solucao[i] = outras_posicoes.pop(0)
     return solucao
 
 def funcobj(bestsol):
     n = len(bestsol)
-    
     diagonal_pos = set()
     diagonal_neg = set()
     conflitos = 0
@@ -27,13 +19,11 @@ def funcobj(bestsol):
         diag_pos = i - bestsol[i]
         diag_neg = i + bestsol[i]
         
-        #verifica se existe mais de uma rainha na mesma diagonal
         if diag_pos in diagonal_pos:
             conflitos += 1
         if diag_neg in diagonal_neg:
             conflitos += 1
             
-        #adiciona as diagonais ao conjunto
         diagonal_pos.add(diag_pos)
         diagonal_neg.add(diag_neg)
     
@@ -45,17 +35,13 @@ def gerar_vizinhos(solucao):
     
     for i in range(n):
         for j in range(i + 1, n):
-            #faz uma copia da solucao atual
-            # if i == linha_fixa or j == linha_fixa:
-            #     continue
             vizinho = solucao[:]
-            #troca duas posicoes
             vizinho[i], vizinho[j] = vizinho[j], vizinho[i]
             vizinhos.append(vizinho)
     return vizinhos
 
-def busca_tabu(n_rainhas, max_iter, tamanho_tabu):  #, coluna_fixa=None, linha_fixa=None):
-    solucao_atual = gerar_solucao(n_rainhas) # , coluna_fixa, linha_fixa)
+def busca_tabu(n_rainhas, max_iter, tamanho_tabu):  # , coluna_fixa=None, linha_fixa=None):
+    solucao_atual = gerar_solucao(n_rainhas)
     melhor_solucao = solucao_atual[:]
     melhor_fitness = funcobj(solucao_atual)
     
@@ -63,8 +49,10 @@ def busca_tabu(n_rainhas, max_iter, tamanho_tabu):  #, coluna_fixa=None, linha_f
     lista_tabu.append(solucao_atual)
     
     iteracao = 0
+    conflitos_por_iteracao = []
+    
     while iteracao < max_iter and melhor_fitness > 0:
-        vizinhos = gerar_vizinhos(solucao_atual) #linha_fixa
+        vizinhos = gerar_vizinhos(solucao_atual)
         
         vizinho_aceito = None
         melhor_vizinho_fitness = float('inf')
@@ -84,20 +72,43 @@ def busca_tabu(n_rainhas, max_iter, tamanho_tabu):  #, coluna_fixa=None, linha_f
                 melhor_solucao = solucao_atual[:]
                 melhor_fitness = melhor_vizinho_fitness
         
+        conflitos_por_iteracao.append(melhor_fitness)
         iteracao += 1
     
-    return melhor_solucao, melhor_fitness
+    return melhor_solucao, melhor_fitness, conflitos_por_iteracao
 
+# Executando a busca tabu
+n_rainhas = 100
+max_iter = 5000
+tamanho_tabu = 50
 
-# # Exemplo de uso
-# linha_fixa = 0  # Linha em que a rainha está fixada
-# coluna_fixa = 3  # Coluna onde queremos fixar a rainha
-
-#executando a busca tabu
 inicio = time.time()
-melhor_solucao, melhor_fitness = busca_tabu(n_rainhas=100, max_iter=5000, tamanho_tabu=50)
+melhor_solucao, melhor_fitness, conflitos_por_iteracao = busca_tabu(n_rainhas=n_rainhas, max_iter=max_iter, tamanho_tabu=tamanho_tabu)
 fim = time.time()
 tempo_execucao = fim - inicio
+
+# Estatísticas
+media_conflitos = np.mean(conflitos_por_iteracao)
+mediana_conflitos = np.median(conflitos_por_iteracao)
+desvio_padrao_conflitos = np.std(conflitos_por_iteracao)
+melhor_caso = min(conflitos_por_iteracao)
+pior_caso = max(conflitos_por_iteracao)
+
 print("Melhor solução encontrada:", melhor_solucao)
 print("Número de conflitos:", melhor_fitness)
 print(f"Tempo de execução: {tempo_execucao:.2f} segundos")
+print(f"Média de conflitos: {media_conflitos}")
+print(f"Mediana de conflitos: {mediana_conflitos}")
+print(f"Desvio padrão de conflitos: {desvio_padrao_conflitos}")
+print(f"Melhor caso (menor número de conflitos): {melhor_caso}")
+print(f"Pior caso (maior número de conflitos): {pior_caso}")
+
+# Gerando o gráfico de convergência
+plt.figure(figsize=(10, 6))
+plt.plot(conflitos_por_iteracao, label="Conflitos por Iteração")
+plt.xlabel("Iteração")
+plt.ylabel("Número de Conflitos")
+plt.title("Convergência do Número de Conflitos nas Iterações")
+plt.legend()
+plt.grid(True)
+plt.show()
