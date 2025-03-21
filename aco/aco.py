@@ -14,7 +14,6 @@ BETA = 8.0
 def carregar_grafo(arquivo):
     df = pd.read_csv(arquivo, sep='\t')
     df.columns = df.columns.str.strip()
-    print("Colunas do DataFrame carregado:", df.columns)
     G = nx.from_pandas_edgelist(df, source='origem', target='destino', edge_attr='custo', create_using=nx.Graph())
     return G, df
 
@@ -56,6 +55,8 @@ def executar_aco(arquivo, nodo_final):
     visibilidade = calcular_visibilidade(G)
     melhor_caminho_global, maior_custo_global = None, float('-inf')
 
+    custos_iteracoes = []  # Armazenar os custos médios por iteração
+
     for iteracao in range(MAX_ITER):
         caminhos, custos = [], []
         for _ in range(N_ANTS):
@@ -75,12 +76,28 @@ def executar_aco(arquivo, nodo_final):
 
         feromonio = atualizar_feromonio(G, feromonio, caminhos, custos)
 
-        #menor custo: inverte o sinal no if
+        # Atualizar o melhor custo
         for caminho, custo in zip(caminhos, custos):
             if custo > maior_custo_global:
                 melhor_caminho_global, maior_custo_global = caminho, custo
 
-    return melhor_caminho_global, maior_custo_global
+        custos_iteracoes.append(np.mean(custos))  # Armazenar o custo médio por iteração
+
+    return melhor_caminho_global, maior_custo_global, custos_iteracoes
+
+def plotar_convergencia(custos_iteracoes, label, arquivo_saida):
+    # Suavização dos dados para observar a estabilização (se necessário)
+    custos_suavizados = np.convolve(custos_iteracoes, np.ones(10)/10, mode='valid')  # Média móvel
+
+    plt.figure(figsize=(8, 6))  # Aumenta o tamanho da figura
+    plt.plot(range(len(custos_suavizados)), custos_suavizados, label=label)
+    plt.xlabel('Iteração', fontsize=12)
+    plt.ylabel('Custo Médio', fontsize=12)
+    plt.title(f'Convergência do ACO - {label}', fontsize=14)
+    plt.legend()
+    plt.grid(True)
+    plt.savefig(arquivo_saida)  # Salva o gráfico em arquivo
+    plt.close()  # Fecha a figura atual para liberar memória
 
 def plotar_grafo(G, caminho):
     pos = nx.spring_layout(G)
@@ -93,27 +110,20 @@ def plotar_grafo(G, caminho):
     plt.show()
 
 if __name__ == "__main__":
-    base = input("Escolha a base (A, B, C, D): ").strip().upper()
-    if base == "A":
-        arquivo = "exemplo_slides.csv"
-        nodo_final = 4
-    elif base == "B":
-        arquivo = "grafo1.csv"
-        nodo_final = 12
-    elif base == "C":
-        arquivo = "grafo2.csv"
-        nodo_final = 20
-    elif base == "D":
-        arquivo = "grafo3.csv"
-        nodo_final = 100
-    else:
-        print("Base inválida!")
-        exit()
+    grafos = {
+        "A": ("exemplo_slides.csv", 4),
+        "B": ("grafo1.csv", 12),
+        "C": ("grafo2.csv", 20),
+        "D": ("grafo3.csv", 100)
+    }
+    
+    for base, (arquivo, nodo_final) in grafos.items():
+        pior_caminho, custo, custos_iteracoes = executar_aco(arquivo, nodo_final)
+        print(f"Base escolhida: {base}")
+        print("Pior caminho encontrado:", pior_caminho)
+        print("Custo do pior caminho:", custo)
 
-    pior_caminho, custo = executar_aco(arquivo, nodo_final)
-    print(f"Base escolhida: {base}")
-    print("Pior caminho encontrado:", pior_caminho)
-    print("Custo do pior caminho:", custo)
+        # Plotar o gráfico de convergência para cada grafo e salvar como arquivos separados
+        plotar_convergencia(custos_iteracoes, label=f"Grafo {base}", arquivo_saida=f"convergencia_{base}.png")
 
-    G, _ = carregar_grafo(arquivo)
-    plotar_grafo(G, pior_caminho)
+    print("Gráficos de convergência salvos com sucesso.")
